@@ -8,13 +8,28 @@ import functools
 
 UnionOfTypes = Union[str, bytes, int, float]
 
-def count_calls(method: Callable) -> Callable:
+def call_history(method: Callable) -> Callable:
+    """ call_history decorator to store the history of inputs and outputs for a particular function
+    """
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
+        """ Append the input arguments as a normalized string to the input list 
+        Execute the original method and store the output
+        """
+
         key = method.__qualname__
-        self._redis.incr(key)
-        return method(self, *args, **kwargs)
+        input_list_key = f"{key}:inputs"
+        output_list_key = f"{key}:outputs"
+
+        self._redis.rpush(input_list_key, str(args))
+
+        output = method(self, *args, **kwargs)
+        self._redis.rpush(output_list_key, str(output))
+
+        # Return the output
+        return output
     return wrapper
+
 class Cache:
     """ Class for methods that operate a caching system """
 
