@@ -3,11 +3,18 @@
 import redis
 from uuid import uuid4
 from typing import Union, Callable, Optional
+import functools
 
 
 UnionOfTypes = Union[str, bytes, int, float]
 
-
+def count_calls(method: Callable) -> Callable:
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        key = method.__qualname__
+        self._redis.incr(key)
+        return method(self, *args, **kwargs)
+    return wrapper
 class Cache:
     """ Class for methods that operate a caching system """
 
@@ -35,8 +42,8 @@ class Cache:
 
     def get_str(self, value: str) -> str:
         """ get a string """
-        return self.get(self._key, str)
+        return self.get(value, str)
 
     def get_int(self, value: str) -> int:
         """ get an int """
-        return self.get(self._key, int)
+        return self.get(value, int)
