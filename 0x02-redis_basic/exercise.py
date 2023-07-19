@@ -8,6 +8,14 @@ import functools
 
 UnionOfTypes = Union[str, bytes, int, float]
 
+def count_calls(method: Callable) -> Callable:
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        key = method.__qualname__
+        self._redis.incr(key)
+        return method(self, *args, **kwargs)
+    return wrapper
+
 def call_history(method: Callable) -> Callable:
     """ call_history decorator to store the history of inputs and outputs for a particular function
     """
@@ -29,6 +37,19 @@ def call_history(method: Callable) -> Callable:
         # Return the output
         return output
     return wrapper
+
+def replay(redis_instance: redis.Redis, method_name: str) -> list[str]:
+    input_list_key = f"{method_name}:inputs"
+    output_list_key = f"{method_name}:outputs"
+
+    input_args = redis_instance.lrange(input_list_key, 0, -1)
+    output_values = redis_instance.lrange(output_list_key, 0, -1)
+
+    history = []
+    for args, value in zip(input_args, output_values):
+        history.append((args.decode('utf-8'), value.decode('utf-8')))
+
+    return history
 
 class Cache:
     """ Class for methods that operate a caching system """
